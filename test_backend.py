@@ -7,7 +7,7 @@ import requests
 import json
 from datetime import datetime
 
-BASE_URL = "http://172.31.186.150:8000"
+BASE_URL = "http://100.31.117.111:8000"
 
 def test_endpoint(endpoint, method="GET", data=None, headers=None):
     """Test a single endpoint"""

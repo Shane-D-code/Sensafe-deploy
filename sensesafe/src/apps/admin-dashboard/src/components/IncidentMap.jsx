@@ -8,29 +8,10 @@ import { RotateCcw, Map as MapIcon, Loader2, AlertTriangle, ShieldCheck, Refresh
 import { Link } from 'react-router-dom';
 
 // API Configuration
-const API_BASE_URL = 'http://192.168.1.255:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000';
 
 // Use same color scale for incidents
 const COLOR_SCALE = interpolateReds;
-
-// Mock Data (reused for now, but in real app this would come from props/api)
-const MOCK_INCIDENT_DATA = [
-    { id: 1, type: 'Flood', state: 'Kerala', severity: 'High', count: 12 },
-    { id: 2, type: 'Fire', state: 'Maharashtra', severity: 'High', count: 8 },
-    { id: 3, type: 'Earthquake', state: 'Gujarat', severity: 'High', count: 5 },
-    { id: 4, type: 'Medical', state: 'Delhi', severity: 'Medium', count: 25 },
-    { id: 5, type: 'Road Accident', state: 'Uttar Pradesh', severity: 'High', count: 15 },
-    { id: 6, type: 'Flood', state: 'Assam', severity: 'High', count: 18 },
-    { id: 7, type: 'Other', state: 'Karnataka', severity: 'Low', count: 10 },
-    { id: 8, type: 'Fire', state: 'Tamil Nadu', severity: 'Medium', count: 7 },
-    { id: 9, type: 'Medical', state: 'West Bengal', severity: 'High', count: 12 },
-    { id: 10, type: 'Flood', state: 'Bihar', severity: 'High', count: 20 },
-    { id: 11, type: 'Road Accident', state: 'Rajasthan', severity: 'Medium', count: 9 },
-    { id: 12, type: 'Other', state: 'Madhya Pradesh', severity: 'Low', count: 6 },
-    { id: 13, type: 'Fire', state: 'Punjab', severity: 'High', count: 4 },
-    { id: 14, type: 'Medical', state: 'Telangana', severity: 'Medium', count: 11 },
-    { id: 15, type: 'Flood', state: 'Odisha', severity: 'High', count: 14 },
-];
 
 const STATE_NAMES = {
     'Andaman & Nicobar Island': 'Andaman and Nicobar',

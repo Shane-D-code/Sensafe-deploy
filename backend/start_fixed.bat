@@ -8,7 +8,7 @@ echo 500 Errors: All admin endpoints have error handling
 echo Infinite Loops: Frontend components fixed
 echo.
 echo Starting on http://0.0.0.0:8000
-echo Network access: http://192.168.0.130:8000
+echo Network access: http://100.31.117.111:8000
 echo.
 echo Press Ctrl+C to stop
 echo ========================================

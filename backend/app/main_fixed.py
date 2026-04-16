@@ -68,7 +68,7 @@ async def create_default_admin():
 # Configure CORS - FIXED for localhost:3002 + network
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS + ["http://localhost:3002", "http://192.168.1.255:3002"],
+    allow_origins=settings.CORS_ORIGINS + ["http://localhost:3002", "http://100.31.117.111:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

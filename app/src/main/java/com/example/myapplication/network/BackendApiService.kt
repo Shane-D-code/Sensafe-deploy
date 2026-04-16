@@ -17,7 +17,7 @@ import retrofit2.http.Part
  * - Analytics and monitoring
  * 
  * Backend Configuration:
- * - Base URL: http://192.168.1.255:8000 (configured in RetrofitClient)
+ * - Base URL: http://100.31.117.111:8000 (configured in RetrofitClient)
  * - Endpoint: POST /api/roboflow/detect
  * - Format: multipart/form-data (image file upload)
  */

@@ -78,7 +78,12 @@ function App() {
 
     } catch (error) {
       console.error('❌ Error fetching data from backend:', error);
-      // Set empty data on error to prevent crash
+      // If token was cleared by interceptor, log out via React state (no page reload)
+      if (!localStorage.getItem('token')) {
+        setIsLoggedIn(false);
+        return;
+      }
+      // Otherwise just show empty data
       setMessages([]);
       setAlerts([]);
       setStats({ total: 0, unread: 0, by_type: { SOS: 0, INCIDENT: 0, GENERAL: 0 } });

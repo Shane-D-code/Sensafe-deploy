@@ -1,6 +1,9 @@
+import tailwindcss from './node_modules/tailwindcss/lib/index.js'
+import autoprefixer from './node_modules/autoprefixer/lib/autoprefixer.js'
+
 export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
+  plugins: [
+    tailwindcss,
+    autoprefixer,
+  ],
 }

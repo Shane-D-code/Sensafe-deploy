@@ -15,7 +15,7 @@ echo ✅ This fixes the StatementError in admin endpoints
 echo.
 echo Backend will start on:
 echo   - Local: http://127.0.0.1:8000
-echo   - Network: http://192.168.0.130:8000
+echo   - Network: http://100.31.117.111:8000
 echo.
 echo Press Ctrl+C to stop
 echo ========================================

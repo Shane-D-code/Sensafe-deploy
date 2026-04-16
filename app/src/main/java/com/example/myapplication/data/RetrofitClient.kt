@@ -13,7 +13,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  */
 object RetrofitClient {
     // Your PC's WiFi IP address for physical device testing
-private const val BASE_URL = "http://192.168.1.18:8000"
+private const val BASE_URL = "http://100.31.117.111:8000"
 
     val instance: RescueService by lazy {
         Retrofit.Builder()

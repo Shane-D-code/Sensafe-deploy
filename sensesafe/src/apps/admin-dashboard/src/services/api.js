@@ -7,7 +7,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.1.255:8000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -28,48 +28,38 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // If 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
-        // Try to refresh token
         const token = localStorage.getItem('token');
         if (token) {
           const refreshResponse = await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://192.168.1.255:8000'}/api/auth/refresh`,
+            `${import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000'}/api/auth/refresh`,
             {},
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
+            { headers: { Authorization: `Bearer ${token}` } }
           );
-          
+
           if (refreshResponse.data.access_token) {
-            // Save new token
             localStorage.setItem('token', refreshResponse.data.access_token);
-            
-            // Retry original request with new token
             originalRequest.headers.Authorization = `Bearer ${refreshResponse.data.access_token}`;
             return apiClient(originalRequest);
           }
         }
       } catch (refreshError) {
-        // Refresh failed, logout user
+        // Refresh failed — clear token but do NOT redirect (let React state handle it)
         localStorage.removeItem('token');
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
-    
-    // If still 401 after refresh attempt, logout
+
+    // If still 401 after refresh attempt — clear token but do NOT redirect
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
     }
-    
+
     return Promise.reject(error);
   }
 );

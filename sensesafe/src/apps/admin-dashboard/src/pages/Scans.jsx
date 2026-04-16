@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Eye, Clock, TrendingUp } from 'lucide-react';
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000';
+
 function Scans() {
     const [scans, setScans] = useState([]);
     const [stats, setStats] = useState({
@@ -52,7 +54,6 @@ function Scans() {
     const fetchScans = async () => {
         try {
             const token = localStorage.getItem('token');
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.255:8000';
             const response = await axios.get(`${API_BASE}/api/admin/scans`, {
                 headers: { Authorization: `Bearer ${token}` },
                 params: { page_size: 50 }
@@ -66,7 +67,6 @@ function Scans() {
     const fetchStats = async () => {
         try {
             const token = localStorage.getItem('token');
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.255:8000';
             const response = await axios.get(`${API_BASE}/api/admin/scans/stats`, {
                 headers: { Authorization: `Bearer ${token}` }
             });

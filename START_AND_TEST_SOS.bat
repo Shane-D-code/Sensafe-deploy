@@ -14,7 +14,7 @@ echo.
 cd backend
 
 echo Step 1: Checking backend health...
-curl -s http://192.168.0.130:8000/health
+curl -s http://100.31.117.111:8000/health
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ❌ Backend is NOT running!

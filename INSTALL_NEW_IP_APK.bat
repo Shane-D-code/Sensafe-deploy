@@ -3,8 +3,8 @@ echo ========================================
 echo  Installing SenseSafe APK (New IP)
 echo ========================================
 echo.
-echo New IP: 192.168.0.130:8000
-echo Old IP: 172.31.186.150:8000
+echo New IP: 100.31.117.111:8000
+echo Old IP: 192.168.0.130:8000
 echo.
 echo ========================================
 echo.
@@ -34,7 +34,7 @@ echo  Installation Complete!
 echo ========================================
 echo.
 echo App is now running with:
-echo - Backend: http://192.168.0.130:8000
+echo - Backend: http://100.31.117.111:8000
 echo - Voice-guided incident reporting
 echo - Auto-category detection
 echo - Auto-location fetch
