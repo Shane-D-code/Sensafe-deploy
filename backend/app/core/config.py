@@ -36,10 +36,10 @@ class Settings(BaseSettings):
         "http://localhost:3001",  # Admin dashboard
         "http://localhost:3002",  # Actual Vite port
         "http://localhost:5173",  # Vite dev server
-        "http://192.168.0.130:3000",  # User app on network IP
-        "http://192.168.0.130:3001",  # Admin dashboard on network IP
-        "http://192.168.0.130:3002",  # Actual Vite port on network IP
-        "http://192.168.0.130:8000",  # Backend itself
+        "http://192.168.1.255:3000",  # User app on network IP
+        "http://192.168.1.255:3001",  # Admin dashboard on network IP
+        "http://192.168.1.18:3002",  # Actual Vite port on network IP
+        "http://192.168.1.18:8000",  # Backend itself
         "*",  # Allow all origins for Android app
         # Note: Removed "*" wildcard because allow_credentials=True 
         # requires specific origins (browser security requirement)

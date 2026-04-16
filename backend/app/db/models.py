@@ -11,8 +11,11 @@ import uuid
 import enum
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, ForeignKey, Float, Integer, Enum, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
+# Use String for UUID to support both SQLite (dev) and PostgreSQL (prod)
+def UUID(as_uuid=True):
+    return String(36)
 
 
 # Enums
@@ -64,7 +67,7 @@ class AlertType(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
@@ -79,7 +82,7 @@ class User(Base):
 class Incident(Base):
     __tablename__ = "incidents"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     type = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
@@ -97,7 +100,7 @@ class Incident(Base):
 class SOS(Base):
     __tablename__ = "sos"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     ability = Column(Enum(UserAbility), nullable=False)
     lat = Column(Float, nullable=False)
@@ -112,7 +115,7 @@ class SOS(Base):
 class Alert(Base):
     __tablename__ = "alerts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     severity = Column(Enum(AlertSeverity), nullable=False)
@@ -129,7 +132,7 @@ class MessageType(str, enum.Enum):
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Nullable for anonymous SOS
     message_type = Column(Enum(MessageType), nullable=False)
     title = Column(String(255), nullable=False)
@@ -175,7 +178,7 @@ class AuditLog(Base):
     """
     __tablename__ = "audit_logs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     admin_email = Column(String(255), nullable=False)
     action = Column(Enum(AuditAction), nullable=False)
@@ -200,7 +203,7 @@ class Scan(Base):
     """
     __tablename__ = "scans"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # NULL for anonymous
     image_url = Column(String(500), nullable=True)  # Optional: store image URL
     detections = Column(Text, nullable=False)  # JSON string of detection results

@@ -36,7 +36,7 @@ import java.io.ByteArrayOutputStream
  * - Extended timeouts for large image uploads
  * 
  * Configuration:
- * - Backend URL: 192.168.0.130:8000 (configured in RetrofitClient)
+ * - Backend URL: 192.168.1.255:8000 (configured in RetrofitClient)
  * - API Keys (legacy): Load from BuildConfig (RF_WINDOWS_KEY, RF_DOOR_KEY, RF_HALL_KEY, RF_STAIRS_KEY)
  * - Model URLs (legacy): Configure in RoboflowService companion object
  * 

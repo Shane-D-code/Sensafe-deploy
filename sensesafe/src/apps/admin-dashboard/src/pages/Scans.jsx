@@ -52,7 +52,7 @@ function Scans() {
     const fetchScans = async () => {
         try {
             const token = localStorage.getItem('token');
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.0.130:8000';
+            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.255:8000';
             const response = await axios.get(`${API_BASE}/api/admin/scans`, {
                 headers: { Authorization: `Bearer ${token}` },
                 params: { page_size: 50 }
@@ -66,7 +66,7 @@ function Scans() {
     const fetchStats = async () => {
         try {
             const token = localStorage.getItem('token');
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.0.130:8000';
+            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.255:8000';
             const response = await axios.get(`${API_BASE}/api/admin/scans/stats`, {
                 headers: { Authorization: `Bearer ${token}` }
             });

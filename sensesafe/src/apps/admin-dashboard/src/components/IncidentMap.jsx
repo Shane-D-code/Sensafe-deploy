@@ -8,7 +8,7 @@ import { RotateCcw, Map as MapIcon, Loader2, AlertTriangle, ShieldCheck, Refresh
 import { Link } from 'react-router-dom';
 
 // API Configuration
-const API_BASE_URL = 'http://192.168.0.130:8000';
+const API_BASE_URL = 'http://192.168.1.255:8000';
 
 // Use same color scale for incidents
 const COLOR_SCALE = interpolateReds;

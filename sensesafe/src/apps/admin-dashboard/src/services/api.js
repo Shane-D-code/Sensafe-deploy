@@ -7,7 +7,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.0.130:8000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.1.255:8000',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -38,7 +38,7 @@ apiClient.interceptors.response.use(
         const token = localStorage.getItem('token');
         if (token) {
           const refreshResponse = await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://192.168.0.130:8000'}/api/auth/refresh`,
+            `${import.meta.env.VITE_API_URL || 'http://192.168.1.255:8000'}/api/auth/refresh`,
             {},
             {
               headers: {
