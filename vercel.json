@@ -1,15 +1,1 @@
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "sensesafe/src/apps/admin-dashboard/package.json",
-      "use": "@vercel/static-build"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "sensesafe/src/apps/admin-dashboard/dist/index.html"
-    }
-  ]
-}
+{"version":2,"builds":[{"src":"sensesafe/src/apps/admin-dashboard/package.json","use":"@vercel/static-build"}],"routes":[{"src":"/(.*)","dest":"/dist/index.html"}]}
