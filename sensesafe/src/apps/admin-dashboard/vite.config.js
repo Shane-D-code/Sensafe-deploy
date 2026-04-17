@@ -4,13 +4,15 @@ import react from '@vitejs/plugin-react'
 const BACKEND_URL = 'http://localhost:8000'
 
 export default defineConfig({
+  base: '/',
   plugins: [react()],
   root: '.',
   css: {
     postcss: './postcss.config.js'
   },
   build: {
-    outDir: '../../../dist/admin-dashboard'
+    outDir: 'dist',
+    emptyOutDir: true
   },
   server: {
     port: 3001,
