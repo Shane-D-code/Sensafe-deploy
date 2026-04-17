@@ -1,209 +1,197 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Users, CheckCircle, Clock } from 'lucide-react';
+import {
+  AlertTriangle, Users, CheckCircle, Siren, RefreshCw,
+  MapPin, Battery, Clock, TrendingUp, Activity, ArrowRight
+} from 'lucide-react';
 import { IncidentMap } from '../components/IncidentMap';
-import { getSOSStats, getAllAlertsForAdmin } from "../services/api";
+import { getSOSStats, getAllAlertsForAdmin, getAllUsers } from '../services/api';
 
-function Dashboard({ alerts, newAlertId }) {
-    const [stats, setStats] = useState({
-        totalIncidents: 0,
-        activeSOS: 0,
-        highRiskUsers: 0,
-        resolved: 0
-    });
-    const [sosStats, setSosStats] = useState({ active_sos: 0 });
-    const [isLoading, setIsLoading] = useState(true);
+const StatCard = ({ icon: Icon, label, value, color, sub }) => (
+  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="text-sm text-gray-400">{label}</p>
+        <p className="text-3xl font-bold text-white mt-1">{value}</p>
+        {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+      </div>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+    </div>
+  </div>
+);
 
-    // Fetch real SOS stats from backend - FIXED: Proper dependency array
-    useEffect(() => {
-        let isMounted = true;
-        
-        const fetchStats = async () => {
-            try {
-                const sosData = await getSOSStats();
-                if (isMounted) {
-                    setSosStats({ active_sos: sosData.active_sos || 0 });
-                }
-            } catch (error) {
-                console.error('Error fetching SOS stats:', error);
-            }
-        };
-        
-        fetchStats();
-        
-        // Real-time polling every 3 seconds
-        const interval = setInterval(fetchStats, 3000);
-        
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
-    }, []); // Empty array = runs once on mount
+const statusColors = {
+  Active: 'bg-red-900/50 text-red-300 border border-red-700',
+  Pending: 'bg-yellow-900/50 text-yellow-300 border border-yellow-700',
+  Resolved: 'bg-green-900/50 text-green-300 border border-green-700',
+  NEED_HELP: 'bg-red-900/50 text-red-300 border border-red-700',
+  TRAPPED: 'bg-red-900/50 text-red-300 border border-red-700',
+  INJURED: 'bg-orange-900/50 text-orange-300 border border-orange-700',
+  SAFE: 'bg-green-900/50 text-green-300 border border-green-700',
+};
 
-    useEffect(() => {
-        // Calculate stats from alerts
-        const totalIncidents = alerts.filter(a => a.alertType === 'Incident').length;
-        const activeSOS = alerts.filter(a => a.alertType === 'SOS Alert' && a.status !== 'Resolved').length;
-        const highRiskUsers = alerts.filter(a => a.isVulnerable && a.status !== 'Resolved').length;
-        const resolved = alerts.filter(a => a.status === 'Resolved').length;
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const diff = Date.now() - new Date(ts);
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
-        setStats({ totalIncidents, activeSOS, highRiskUsers, resolved });
-        setIsLoading(false);
-    }, [alerts]);
+function Dashboard({ alerts, stats }) {
+  const [sosStats, setSosStats] = useState({ active_sos: 0 });
+  const [userCount, setUserCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-    return (
-        <div className="p-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard Overview</h1>
+  const fetchExtra = useCallback(async () => {
+    try {
+      const [sos, users] = await Promise.all([getSOSStats(), getAllUsers({ page_size: 1 })]);
+      setSosStats({ active_sos: sos.active_sos || 0 });
+      setUserCount(users.total || 0);
+    } catch {}
+  }, []);
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center">
-                        <AlertTriangle className="h-8 w-8 text-red-500" />
-                        <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Total Incidents</p>
-                            <p className="text-2xl font-bold text-gray-900">{stats.totalIncidents}</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center">
-                        <Users className="h-8 w-8 text-orange-500" />
-                        <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Active SOS</p>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {isLoading ? '...' : (sosStats.active_sos || stats.activeSOS)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center">
-                        <AlertTriangle className="h-8 w-8 text-yellow-500" />
-                        <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">High Risk Users</p>
-                            <p className="text-2xl font-bold text-gray-900">{stats.highRiskUsers}</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow">
-                    <div className="flex items-center">
-                        <CheckCircle className="h-8 w-8 text-green-500" />
-                        <div className="ml-4">
-                            <p className="text-sm font-medium text-gray-600">Resolved</p>
-                            <p className="text-2xl font-bold text-gray-900">{stats.resolved}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  useEffect(() => {
+    fetchExtra();
+    const iv = setInterval(fetchExtra, 10000);
+    return () => clearInterval(iv);
+  }, [fetchExtra]);
 
-            {/* Live Map */}
-            <div className="mb-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Live Incident Map</h2>
-                <IncidentMap isAdmin={true} />
-            </div>
+  const sosList = alerts.filter(a => a.alertType === 'SOS Alert').slice(0, 6);
+  const incidentList = alerts.filter(a => a.alertType === 'Incident').slice(0, 6);
+  const resolved = alerts.filter(a => a.status === 'Resolved').length;
 
-            {/* SOS List Table */}
-            <div className="bg-white p-6 rounded-lg shadow mb-8">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">SOS Alerts</h2>
-                    <Link to="/alerts" className="text-indigo-600 hover:text-indigo-900">View All</Link>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ability</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Score</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Battery</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {alerts.filter(a => a.alertType === 'SOS Alert').slice(0, 5).map((alert) => (
-                                <tr key={alert.id} className={newAlertId === alert.id ? 'bg-yellow-50' : ''}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{alert.userName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{alert.userCategory}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {/* TODO: PLACEHOLDER: AI RISK API (Azure ML) */}
-                                        {alert.riskScore || Math.floor(Math.random() * 100)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{alert.battery || 0}%</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${alert.status === 'Active' ? 'bg-red-100 text-red-800' :
-                                            alert.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-green-100 text-green-800'
-                                            }`}>
-                                            {alert.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <Link to={`/alerts/${alert.id}`} className="text-indigo-600 hover:text-indigo-900">View Details</Link>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* Incident Management Table */}
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Incident Management</h2>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reporter</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {alerts.filter(a => a.alertType === 'Incident').slice(0, 5).map((alert) => (
-                                <tr key={alert.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{alert.description.length > 30 ? alert.description.substring(0, 30) + '...' : alert.description}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${alert.severity === 'critical' || alert.severity === 'high' ? 'bg-red-100 text-red-800' :
-                                            alert.severity === 'medium' ? 'bg-orange-100 text-orange-800' :
-                                                'bg-yellow-100 text-yellow-800'
-                                            }`}>
-                                            {alert.severity || 'Medium'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{alert.userName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${alert.status === 'Active' ? 'bg-red-100 text-red-800' :
-                                            alert.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-green-100 text-green-800'
-                                            }`}>
-                                            {alert.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <Link to={`/alerts/${alert.id}`} className="text-indigo-600 hover:text-indigo-900 mr-2">View</Link>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* AI Explanation Panel */}
-            <div className="bg-white p-6 rounded-lg shadow mt-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">AI Risk Analysis</h2>
-                <p className="text-gray-700">
-                    {/* TODO: PLACEHOLDER: AZURE OPENAI CALL */}
-                    High risk due to low battery, no movement, severe area risk.
-                </p>
-            </div>
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Live emergency response overview</p>
         </div>
-    );
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+          Live — auto-refreshes every 5s
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Siren} label="Active SOS" value={sosStats.active_sos} color="bg-red-600" sub="Needs immediate response" />
+        <StatCard icon={AlertTriangle} label="Total Incidents" value={stats.by_type?.INCIDENT || 0} color="bg-orange-600" sub="Reported by users" />
+        <StatCard icon={CheckCircle} label="Resolved" value={resolved} color="bg-green-600" sub="Closed alerts" />
+        <StatCard icon={Users} label="Registered Users" value={userCount} color="bg-blue-600" sub="App users" />
+      </div>
+
+      {/* Map */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-white">Live Incident Map</h2>
+        </div>
+        <IncidentMap isAdmin={true} />
+      </div>
+
+      {/* Tables row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* SOS Table */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+            <h2 className="font-semibold text-white flex items-center gap-2">
+              <Siren className="w-4 h-4 text-red-400" /> SOS Alerts
+            </h2>
+            <Link to="/alerts" className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {sosList.length === 0 ? (
+            <div className="px-5 py-8 text-center text-gray-500 text-sm">No active SOS alerts</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 border-b border-gray-800">
+                  <th className="px-5 py-2.5 text-left font-medium">User</th>
+                  <th className="px-5 py-2.5 text-left font-medium">Status</th>
+                  <th className="px-5 py-2.5 text-left font-medium">Battery</th>
+                  <th className="px-5 py-2.5 text-left font-medium">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sosList.map((a) => (
+                  <tr key={a.id} className="border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors">
+                    <td className="px-5 py-3 text-gray-200 font-medium">{a.userName}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[a.status] || 'bg-gray-800 text-gray-400'}`}>
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`flex items-center gap-1 text-xs ${a.battery < 20 ? 'text-red-400' : 'text-gray-400'}`}>
+                        <Battery className="w-3 h-3" />{a.battery ?? '—'}%
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-500 text-xs">{timeAgo(a.timestamp)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Incidents Table */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+            <h2 className="font-semibold text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-400" /> Recent Incidents
+            </h2>
+            <Link to="/messages" className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {incidentList.length === 0 ? (
+            <div className="px-5 py-8 text-center text-gray-500 text-sm">No incidents reported</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 border-b border-gray-800">
+                  <th className="px-5 py-2.5 text-left font-medium">Description</th>
+                  <th className="px-5 py-2.5 text-left font-medium">Severity</th>
+                  <th className="px-5 py-2.5 text-left font-medium">Status</th>
+                  <th className="px-5 py-2.5 text-left font-medium">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incidentList.map((a) => (
+                  <tr key={a.id} className="border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors">
+                    <td className="px-5 py-3 text-gray-200 max-w-[160px] truncate">{a.description}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        a.severity === 'critical' || a.severity === 'high' ? 'bg-red-900/50 text-red-300 border border-red-700' :
+                        a.severity === 'medium' ? 'bg-orange-900/50 text-orange-300 border border-orange-700' :
+                        'bg-yellow-900/50 text-yellow-300 border border-yellow-700'
+                      }`}>
+                        {a.severity || 'medium'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[a.status] || 'bg-gray-800 text-gray-400'}`}>
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-500 text-xs">{timeAgo(a.timestamp)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default Dashboard;

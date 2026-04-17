@@ -7,8 +7,8 @@ import { json } from 'd3-fetch';
 import { RotateCcw, Map as MapIcon, Loader2, AlertTriangle, ShieldCheck, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000';
+// API Configuration — empty string routes through Vite proxy in dev
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // Use same color scale for incidents
 const COLOR_SCALE = interpolateReds;

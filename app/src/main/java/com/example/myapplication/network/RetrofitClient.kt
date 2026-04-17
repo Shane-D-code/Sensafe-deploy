@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
     // TODO: Move base URL to Azure once deployed
     // Use 10.0.2.2 for Android Emulator to access localhost
-    // Current network IP: 192.168.1.18
     private const val BASE_URL = "http://100.31.117.111:8000"
     
     // Demo/test credentials for development

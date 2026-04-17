@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRelativeTime } from '../hooks/useRelativeTime.js';
 import { AlertTriangle, Clock, User } from 'lucide-react';
 
 function AlertCard({ alert, isNew }) {
@@ -21,7 +22,7 @@ function AlertCard({ alert, isNew }) {
                     }`}>
                         {alert.status}
                     </span>
-                    <p className="text-xs text-gray-400 mt-1">{new Date(alert.timestamp).toLocaleTimeString()}</p>
+                    <p className="text-xs text-gray-400 mt-1">{useRelativeTime(alert.timestamp)}</p>
                 </div>
             </div>
         </div>

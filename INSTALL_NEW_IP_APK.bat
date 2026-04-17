@@ -4,7 +4,7 @@ echo  Installing SenseSafe APK (New IP)
 echo ========================================
 echo.
 echo New IP: 100.31.117.111:8000
-echo Old IP: 192.168.0.130:8000
+echo Old IP: 100.31.117.111:8000
 echo.
 echo ========================================
 echo.

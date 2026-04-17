@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRelativeTime } from '../hooks/useRelativeTime.js';
 import { 
   Search, 
   Filter, 
@@ -125,25 +126,7 @@ function SOSAlerts() {
     }
   };
 
-  // Format timestamp
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'Unknown';
-    
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-    
-    const mins = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    
-    return date.toLocaleString();
-  };
+
 
   // Get ability label
   const getAbilityLabel = (ability) => {
@@ -292,7 +275,7 @@ function SOSAlerts() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                        {formatTimestamp(alert.created_at)}
+                        {useRelativeTime(alert.created_at)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

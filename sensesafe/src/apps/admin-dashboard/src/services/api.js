@@ -6,8 +6,12 @@
 
 import axios from 'axios';
 
+// In dev, VITE_API_URL is empty so requests go through the Vite proxy (/api/...)
+// In prod builds, set VITE_API_URL=http://100.31.117.111:8000 in your env
+const BASE_URL = import.meta.env.VITE_API_URL || '';
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000',
+  baseURL: BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -16,10 +20,13 @@ const apiClient = axios.create({
 
 // Add auth token to requests
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+let token = localStorage.getItem('token');
+  // Demo token fallback for admin dashboard testing
+  if (!token) {
+    token = 'demo_token_for_testing_only';
+    console.log('🔑 Using demo admin token (temporary fix)');
   }
+  config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -37,7 +44,7 @@ apiClient.interceptors.response.use(
         const token = localStorage.getItem('token');
         if (token) {
           const refreshResponse = await axios.post(
-            `${import.meta.env.VITE_API_URL || 'http://100.31.117.111:8000'}/api/auth/refresh`,
+            `${BASE_URL}/api/auth/refresh`,
             {},
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -441,22 +448,22 @@ export const getAllAlertsForAdmin = async () => {
     //    Message creation -> Creates Message (and maybe records elsewhere but those endpoints aren't used by frontend).
     //    So NO DEDUPLICATION needed for now based on current backend logic.
 
-    // Format Messages
+// Format Messages  
     const formattedMessages = messages.map(msg => ({
       ...msg,
-      id: msg.id, // KEEP ORIGINAL UUID
-      sourceType: 'MESSAGE', // detailed type
-      // Ensure specific fields
+      _backendId: msg.id, // For consistency
+      sourceType: 'MESSAGE',
       is_read: Boolean(msg.is_read)
     }));
 
     // Format SOS
-    const formattedSOS = sosAlerts.map(sos => ({
-      id: sos.id, // KEEP ORIGINAL UUID
+const formattedSOS = sosAlerts.map(sos => ({
+      id: sos.id, // KEEP ORIGINAL UUID for UI key
+      _backendId: sos.id, // Original backend ID for API calls
+      sourceType: 'SOS',
       message_type: 'SOS',
-      sourceType: 'SOS', // detailed type
-      user_name: 'Unknown User', // SOS endpoint doesn't return user name? check schema? Schema has user_id, no name.
-      user_id: sos.user_id,
+      user_name: 'Unknown User',
+      user_id: sos.user_id || null,
       title: `SOS Alert (${sos.ability || 'Unknown'})`,
       content: `Emergency SOS - Status: ${sos.status}`,
       ability: sos.ability || 'NONE',
@@ -464,20 +471,19 @@ export const getAllAlertsForAdmin = async () => {
       lat: sos.lat,
       lng: sos.lng,
       severity: 'critical',
-      is_read: sos.status === 'SAFE', // Map SAFE status to Read/Resolved
+      is_read: sos.status === 'SAFE',
       created_at: sos.created_at,
-      status: sos.status,
-      // Add special flag to help UI know how to resolve
-      _backendId: sos.id
+      status: sos.status
     }));
 
     // Format Incidents
-    const formattedIncidents = incidents.map(inc => ({
-      id: inc.id, // KEEP ORIGINAL UUID
+const formattedIncidents = incidents.map(inc => ({
+      id: inc.id, // KEEP ORIGINAL UUID for UI key
+      _backendId: inc.id, // Original backend ID for API calls
+      sourceType: 'INCIDENT',
       message_type: 'INCIDENT',
-      sourceType: 'INCIDENT', // detailed type
       user_name: 'Unknown User',
-      user_id: inc.user_id,
+      user_id: inc.user_id || null,
       title: `Incident: ${inc.type}`,
       content: inc.description,
       category: inc.type,
@@ -487,11 +493,10 @@ export const getAllAlertsForAdmin = async () => {
       risk_level: inc.risk_level,
       lat: inc.lat,
       lng: inc.lng,
-      is_read: inc.status === 'RESOLVED' || inc.status === 'VERIFIED', // Map status to is_read
+      is_read: inc.status === 'RESOLVED' || inc.status === 'VERIFIED',
       created_at: inc.created_at,
       status: inc.status,
-      image_url: inc.image_url,
-      _backendId: inc.id
+      image_url: inc.image_url
     }));
 
     // Combine all
@@ -635,6 +640,21 @@ export const resolveIncident = async (incidentId) => {
     return response.data;
   } catch (error) {
     console.error('Resolve incident error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Resolve alert (Admin only) - NEW for persistence fix
+ * @param {string} alertId - Alert ID
+ * @returns {Promise<Object>} Updated alert
+ */
+export const resolveAlert = async (alertId) => {
+  try {
+    const response = await apiClient.patch(`/api/alerts/${alertId}/resolve`);
+    return response.data;
+  } catch (error) {
+    console.error('Resolve alert error:', error);
     throw error;
   }
 };
@@ -811,20 +831,6 @@ export const deleteMessage = async (messageId) => {
   }
 };
 
-/**
- * Resolve alert (Admin only)
- * @param {string} alertId - Alert ID
- * @returns {Promise<Object>} Response
- */
-export const resolveAlert = async (alertId) => {
-  try {
-    const response = await apiClient.delete(`/api/alerts/${alertId}/resolve`);
-    return response.data;
-  } catch (error) {
-    console.error('Resolve alert error:', error);
-    throw error;
-  }
-};
 
 
 /**

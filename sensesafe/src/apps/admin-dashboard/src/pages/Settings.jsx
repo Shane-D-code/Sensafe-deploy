@@ -1,224 +1,124 @@
 import React, { useState } from 'react';
-import { Save, Bell, Shield, Database, User } from 'lucide-react';
+import { Save, Bell, Shield, Database, CheckCircle } from 'lucide-react';
+
+const Toggle = ({ checked, onChange }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? 'bg-red-600' : 'bg-gray-700'}`}
+  >
+    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+  </button>
+);
 
 function Settings() {
-    const [settings, setSettings] = useState({
-        notifications: {
-            emailAlerts: true,
-            pushNotifications: false,
-            smsAlerts: true,
-        },
-        security: {
-            twoFactorAuth: false,
-            sessionTimeout: '30',
-            passwordExpiry: '90',
-        },
-        system: {
-            maintenanceMode: false,
-            debugMode: false,
-            logLevel: 'info',
-        },
-    });
+  const [settings, setSettings] = useState({
+    notifications: { emailAlerts: true, pushNotifications: false, smsAlerts: true },
+    security: { twoFactorAuth: false, sessionTimeout: '30', passwordExpiry: '90' },
+    system: { maintenanceMode: false, debugMode: false, logLevel: 'info' },
+  });
+  const [saved, setSaved] = useState(false);
 
-    const handleSettingChange = (category, setting, value) => {
-        setSettings(prev => ({
-            ...prev,
-            [category]: {
-                ...prev[category],
-                [setting]: value,
-            },
-        }));
-    };
+  const set = (cat, key, val) => setSettings(p => ({ ...p, [cat]: { ...p[cat], [key]: val } }));
 
-    const handleSave = () => {
-        // Mock save functionality
-        alert('Settings saved successfully!');
-    };
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
-    return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Settings</h1>
-                <button
-                    onClick={handleSave}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
-                >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                </button>
-            </div>
+  const Section = ({ icon: Icon, title, children }) => (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 className="font-semibold text-white flex items-center gap-2 mb-4">
+        <Icon className="w-4 h-4 text-gray-400" /> {title}
+      </h2>
+      <div className="space-y-4">{children}</div>
+    </div>
+  );
 
-            <div className="space-y-6">
-                {/* Notifications Settings */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center mb-4">
-                        <Bell className="h-5 w-5 text-gray-600 mr-2" />
-                        <h2 className="text-lg font-semibold">Notifications</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Email Alerts</label>
-                                <p className="text-sm text-gray-500">Receive alerts via email</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.notifications.emailAlerts}
-                                    onChange={(e) => handleSettingChange('notifications', 'emailAlerts', e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Push Notifications</label>
-                                <p className="text-sm text-gray-500">Receive push notifications in browser</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.notifications.pushNotifications}
-                                    onChange={(e) => handleSettingChange('notifications', 'pushNotifications', e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">SMS Alerts</label>
-                                <p className="text-sm text-gray-500">Receive critical alerts via SMS</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.notifications.smsAlerts}
-                                    onChange={(e) => handleSettingChange('notifications', 'smsAlerts', e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
+  const Row = ({ label, sub, children }) => (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm text-gray-300">{label}</p>
+        {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
+      </div>
+      {children}
+    </div>
+  );
 
-                {/* Security Settings */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center mb-4">
-                        <Shield className="h-5 w-5 text-gray-600 mr-2" />
-                        <h2 className="text-lg font-semibold">Security</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Two-Factor Authentication</label>
-                                <p className="text-sm text-gray-500">Add an extra layer of security</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.security.twoFactorAuth}
-                                    onChange={(e) => handleSettingChange('security', 'twoFactorAuth', e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Session Timeout (minutes)</label>
-                                <p className="text-sm text-gray-500">Auto-logout after inactivity</p>
-                            </div>
-                            <select
-                                value={settings.security.sessionTimeout}
-                                onChange={(e) => handleSettingChange('security', 'sessionTimeout', e.target.value)}
-                                className="border border-gray-300 rounded px-3 py-1 text-sm"
-                            >
-                                <option value="15">15</option>
-                                <option value="30">30</option>
-                                <option value="60">60</option>
-                                <option value="120">120</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Password Expiry (days)</label>
-                                <p className="text-sm text-gray-500">Force password change interval</p>
-                            </div>
-                            <select
-                                value={settings.security.passwordExpiry}
-                                onChange={(e) => handleSettingChange('security', 'passwordExpiry', e.target.value)}
-                                className="border border-gray-300 rounded px-3 py-1 text-sm"
-                            >
-                                <option value="30">30</option>
-                                <option value="60">60</option>
-                                <option value="90">90</option>
-                                <option value="180">180</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* System Settings */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <div className="flex items-center mb-4">
-                        <Database className="h-5 w-5 text-gray-600 mr-2" />
-                        <h2 className="text-lg font-semibold">System</h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Maintenance Mode</label>
-                                <p className="text-sm text-gray-500">Put system in maintenance mode</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.system.maintenanceMode}
-                                    onChange={(e) => handleSettingChange('system', 'maintenanceMode', e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Debug Mode</label>
-                                <p className="text-sm text-gray-500">Enable detailed logging</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.system.debugMode}
-                                    onChange={(e) => handleSettingChange('system', 'debugMode', e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Log Level</label>
-                                <p className="text-sm text-gray-500">Set logging verbosity</p>
-                            </div>
-                            <select
-                                value={settings.system.logLevel}
-                                onChange={(e) => handleSettingChange('system', 'logLevel', e.target.value)}
-                                className="border border-gray-300 rounded px-3 py-1 text-sm"
-                            >
-                                <option value="error">Error</option>
-                                <option value="warn">Warning</option>
-                                <option value="info">Info</option>
-                                <option value="debug">Debug</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="p-6 space-y-5 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Settings</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Configure dashboard preferences</p>
         </div>
-    );
+        <button onClick={handleSave}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            saved ? 'bg-green-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
+          }`}>
+          {saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saved ? 'Saved!' : 'Save Changes'}
+        </button>
+      </div>
+
+      <Section icon={Bell} title="Notifications">
+        <Row label="Email Alerts" sub="Receive alerts via email">
+          <Toggle checked={settings.notifications.emailAlerts} onChange={v => set('notifications', 'emailAlerts', v)} />
+        </Row>
+        <Row label="Push Notifications" sub="Browser push notifications">
+          <Toggle checked={settings.notifications.pushNotifications} onChange={v => set('notifications', 'pushNotifications', v)} />
+        </Row>
+        <Row label="SMS Alerts" sub="Critical alerts via SMS">
+          <Toggle checked={settings.notifications.smsAlerts} onChange={v => set('notifications', 'smsAlerts', v)} />
+        </Row>
+      </Section>
+
+      <Section icon={Shield} title="Security">
+        <Row label="Two-Factor Authentication" sub="Extra layer of security">
+          <Toggle checked={settings.security.twoFactorAuth} onChange={v => set('security', 'twoFactorAuth', v)} />
+        </Row>
+        <Row label="Session Timeout (minutes)" sub="Auto-logout after inactivity">
+          <select value={settings.security.sessionTimeout} onChange={e => set('security', 'sessionTimeout', e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            {['15','30','60','120'].map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </Row>
+        <Row label="Password Expiry (days)" sub="Force password change interval">
+          <select value={settings.security.passwordExpiry} onChange={e => set('security', 'passwordExpiry', e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            {['30','60','90','180'].map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </Row>
+      </Section>
+
+      <Section icon={Database} title="System">
+        <Row label="Maintenance Mode" sub="Put system in maintenance mode">
+          <Toggle checked={settings.system.maintenanceMode} onChange={v => set('system', 'maintenanceMode', v)} />
+        </Row>
+        <Row label="Debug Mode" sub="Enable detailed logging">
+          <Toggle checked={settings.system.debugMode} onChange={v => set('system', 'debugMode', v)} />
+        </Row>
+        <Row label="Log Level" sub="Set logging verbosity">
+          <select value={settings.system.logLevel} onChange={e => set('system', 'logLevel', e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none">
+            {['error','warn','info','debug'].map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </Row>
+      </Section>
+
+      {/* Backend info */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <h2 className="font-semibold text-white mb-3">Backend Connection</h2>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-sm text-gray-300">Connected to</span>
+          <code className="text-xs bg-gray-800 border border-gray-700 px-2 py-1 rounded text-gray-300">
+            100.31.117.111:8000
+          </code>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default Settings;

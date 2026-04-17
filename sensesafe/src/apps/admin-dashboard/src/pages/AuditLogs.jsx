@@ -1,369 +1,191 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search,
-  Filter,
-  Download,
-  Calendar,
-  User,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Clock,
-  RefreshCw
+  Search, Filter, User, Activity, AlertTriangle, CheckCircle,
+  XCircle, Clock, RefreshCw
 } from 'lucide-react';
-
 import { getAuditLogs, getAuditStats } from '../services/api.js';
 
 function AuditLogs() {
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Filters
-  const [filters, setFilters] = useState({
-    action: '',
-    resourceType: '',
-    page: 1,
-    pageSize: 50
-  });
-
+  const [filters, setFilters] = useState({ action: '', resourceType: '', page: 1, pageSize: 50 });
   const [total, setTotal] = useState(0);
 
-  // Fetch audit logs
-  const fetchAuditLogs = async () => {
+  const fetchLogs = async () => {
     setLoading(true);
-    setError(null);
-
     try {
-      const params = {
-        page: filters.page,
-        page_size: filters.pageSize
-      };
-
-      if (filters.action) {
-        params.action = filters.action;
-      }
-      if (filters.resourceType) {
-        params.resource_type = filters.resourceType;
-      }
-
+      const params = { page: filters.page, page_size: filters.pageSize };
+      if (filters.action) params.action = filters.action;
+      if (filters.resourceType) params.resource_type = filters.resourceType;
       const data = await getAuditLogs(params);
-      setAuditLogs(data.audit_logs || []);
+      setLogs(data.audit_logs || []);
       setTotal(data.total || 0);
-    } catch (err) {
-      console.error('Failed to fetch audit logs:', err);
-      setError('Failed to load audit logs. Please try again.');
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch stats
   const fetchStats = async () => {
-    try {
-      const data = await getAuditStats(7);
-      setStats(data);
-    } catch (err) {
-      console.error('Failed to fetch audit stats:', err);
-    }
+    try { setStats(await getAuditStats(7)); } catch {}
   };
 
-  // Initial load and real-time updates
   useEffect(() => {
-    fetchAuditLogs();
+    fetchLogs();
     fetchStats();
+    const iv = setInterval(() => { fetchStats(); if (filters.page === 1) fetchLogs(); }, 15000);
+    return () => clearInterval(iv);
+  }, [filters]);
 
-    const interval = setInterval(() => {
-      // Only refresh if we are on the first page and have no active filters (optional, but good UX)
-      // Actually, for "real time" we usually want to see new stuff. 
-      // If the user has paged or filtered, auto-refresh might be annoying or lose context.
-      // Let's just refresh stats always, and logs only if page===1
-      fetchStats();
-      if (filters.page === 1) {
-        fetchAuditLogs();
-      }
-    }, 10000); // 10 seconds for real-time feel
+  const setFilter = (k, v) => setFilters(p => ({ ...p, [k]: v, page: ['action', 'resourceType'].includes(k) ? 1 : p.page }));
 
-    return () => clearInterval(interval);
-  }, [filters]); // Re-setup interval if filters change, so we capture latest filter state in closure if needed, but fetchAuditLogs uses state...
-  // Wait, if I depend on filters, then fetching inside interval needs access to fresh state.
-  // Using a ref or just simple dependency is easier. actually fetchAuditLogs uses 'filters' state which is a closure capture issue if not careful.
-  // But filters is in dependency array of the other useEffect.
-  // Let's just create a separate effect for the interval that depends on `filters` to restart it, OR use a functional update pattern / ref.
-  // Easiest is to add filters to dependency array here.
-
-
-
-
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      page: key === 'action' || key === 'resourceType' ? 1 : prev.page
-    }));
+  const actionIcon = (action) => {
+    if (action.includes('LOGIN')) return <User className="w-3.5 h-3.5 text-blue-400" />;
+    if (action.includes('VERIFY') || action.includes('RESOLVE')) return <CheckCircle className="w-3.5 h-3.5 text-green-400" />;
+    if (action.includes('CREATE')) return <AlertTriangle className="w-3.5 h-3.5 text-orange-400" />;
+    if (action.includes('FAILED')) return <XCircle className="w-3.5 h-3.5 text-red-400" />;
+    return <Activity className="w-3.5 h-3.5 text-gray-400" />;
   };
 
-  const handleRefresh = () => {
-    fetchAuditLogs();
-    fetchStats();
-  };
-
-  const getActionIcon = (action) => {
-    if (action.includes('LOGIN') || action.includes('LOGOUT')) {
-      return <User className="h-4 w-4 text-blue-500" />;
-    }
-    if (action.includes('VERIFY')) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-    if (action.includes('RESOLVE')) {
-      return <CheckCircle className="h-4 w-4 text-green-600" />;
-    }
-    if (action.includes('CREATE')) {
-      return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-    }
-    if (action.includes('UPDATE')) {
-      return <Activity className="h-4 w-4 text-purple-500" />;
-    }
-    if (action.includes('FAILED')) {
-      return <XCircle className="h-4 w-4 text-red-500" />;
-    }
-    if (action.includes('VIEW')) {
-      return <Search className="h-4 w-4 text-gray-500" />;
-    }
-    return <Activity className="h-4 w-4 text-gray-500" />;
-  };
-
-  const formatAction = (action) => {
-    return action.replace(/_/g, ' ').toLowerCase()
-      .replace(/\b\w/g, char => char.toUpperCase());
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString();
-  };
-
-  const actionOptions = [
-    { value: '', label: 'All Actions' },
-    { value: 'VIEW_INCIDENTS', label: 'View Incidents' },
-    { value: 'VERIFY_INCIDENT', label: 'Verify Incident' },
-    { value: 'RESOLVE_INCIDENT', label: 'Resolve Incident' },
-    { value: 'UPDATE_INCIDENT', label: 'Update Incident' },
-    { value: 'CREATE_ALERT', label: 'Create Alert' },
-    { value: 'LOGIN', label: 'Login' },
-    { value: 'LOGOUT', label: 'Logout' },
-    { value: 'FAILED_LOGIN', label: 'Failed Login' },
-  ];
-
-  const resourceTypeOptions = [
-    { value: '', label: 'All Resources' },
-    { value: 'INCIDENT', label: 'Incident' },
-    { value: 'ALERT', label: 'Alert' },
-    { value: 'AUTH', label: 'Authentication' },
-    { value: 'AUDIT_LOG', label: 'Audit Log' },
-  ];
+  const formatAction = (a) => a.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-5">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Audit Logs</h1>
-          <p className="text-gray-600">Track all admin actions and changes</p>
+          <h1 className="text-2xl font-bold text-white">Audit Logs</h1>
+          <p className="text-gray-400 text-sm mt-0.5">Track all admin actions and system events</p>
         </div>
-
-        <button
-          onClick={handleRefresh}
-          disabled={loading}
-          className="flex items-center px-4 py-2 border rounded hover:bg-gray-50"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+        <button onClick={() => { fetchLogs(); fetchStats(); }} disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-sm transition-colors">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded shadow">
-            <div className="text-sm text-gray-600">Total Actions (7 days)</div>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </div>
-          <div className="bg-white p-4 rounded shadow">
-            <div className="text-sm text-gray-600">Successful</div>
-            <div className="text-2xl font-bold text-green-600">{stats.successful}</div>
-          </div>
-          <div className="bg-white p-4 rounded shadow">
-            <div className="text-sm text-gray-600">Failed</div>
-            <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
-          </div>
-          <div className="bg-white p-4 rounded shadow">
-            <div className="text-sm text-gray-600">Success Rate</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {stats.total > 0
-                ? Math.round((stats.successful / stats.total) * 100)
-                : 0}%
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Total (7d)', value: stats.total, color: 'text-white' },
+            { label: 'Successful', value: stats.successful, color: 'text-green-400' },
+            { label: 'Failed', value: stats.failed, color: 'text-red-400' },
+            { label: 'Success Rate', value: stats.total > 0 ? `${Math.round((stats.successful / stats.total) * 100)}%` : '—', color: 'text-blue-400' },
+          ].map(s => (
+            <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+              <p className="text-xs text-gray-500">{s.label}</p>
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
             </div>
-          </div>
+          ))}
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded shadow mb-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center">
-            <Filter className="h-4 w-4 mr-2 text-gray-500" />
-            <span className="text-sm font-medium mr-2">Filters:</span>
-          </div>
-
-          <select
-            value={filters.action}
-            onChange={(e) => handleFilterChange('action', e.target.value)}
-            className="border rounded px-3 py-1 text-sm"
-          >
-            {actionOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-
-          <select
-            value={filters.resourceType}
-            onChange={(e) => handleFilterChange('resourceType', e.target.value)}
-            className="border rounded px-3 py-1 text-sm"
-          >
-            {resourceTypeOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-
-          <div className="ml-auto text-sm text-gray-500">
-            Showing {auditLogs.length} of {total} entries
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-3 bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <select value={filters.action} onChange={e => setFilter('action', e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+          <option value="">All Actions</option>
+          <option value="VIEW_INCIDENTS">View Incidents</option>
+          <option value="VERIFY_INCIDENT">Verify Incident</option>
+          <option value="RESOLVE_INCIDENT">Resolve Incident</option>
+          <option value="CREATE_ALERT">Create Alert</option>
+          <option value="LOGIN">Login</option>
+          <option value="FAILED_LOGIN">Failed Login</option>
+        </select>
+        <select value={filters.resourceType} onChange={e => setFilter('resourceType', e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+          <option value="">All Resources</option>
+          <option value="INCIDENT">Incident</option>
+          <option value="ALERT">Alert</option>
+          <option value="AUTH">Authentication</option>
+        </select>
+        <span className="ml-auto text-xs text-gray-500 self-center">
+          {logs.length} of {total} entries
+        </span>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-          {error}
-        </div>
-      )}
-
-      {/* Audit Logs Table */}
-      <div className="bg-white rounded shadow overflow-hidden">
+      {/* Table */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
-            Loading audit logs...
+          <div className="p-10 text-center text-gray-500">
+            <RefreshCw className="w-7 h-7 animate-spin mx-auto mb-2" />
           </div>
-        ) : auditLogs.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Activity className="h-8 w-8 mx-auto mb-2" />
-            No audit logs found
+        ) : logs.length === 0 ? (
+          <div className="p-10 text-center text-gray-500">
+            <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p>No audit logs found</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Admin</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Resource</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Details</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {auditLogs.map(log => (
-                <tr key={log.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center">
-                      {getActionIcon(log.action)}
-                      <span className="ml-2 text-sm font-medium">
-                        {formatAction(log.action)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm">{log.admin_email}</div>
-                    <div className="text-xs text-gray-500">ID: {log.admin_id.slice(0, 8)}...</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-medium">{log.resource_type}</div>
-                    {log.resource_id && (
-                      <div className="text-xs text-gray-500">ID: {log.resource_id.slice(0, 8)}...</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {log.details ? (
-                      <details className="text-sm">
-                        <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                          View Details
-                        </summary>
-                        <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto">
-                          {JSON.stringify(JSON.parse(log.details), null, 2)}
-                        </pre>
-                      </details>
-                    ) : (
-                      <span className="text-gray-400 text-sm">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {log.success ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Success
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Failed
-                      </span>
-                    )}
-                    {log.error_message && (
-                      <div className="text-xs text-red-500 mt-1">{log.error_message}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Clock className="h-4 w-4 mr-1" />
-                      {formatDate(log.created_at)}
-                    </div>
-                    {log.ip_address && (
-                      <div className="text-xs text-gray-400">IP: {log.ip_address}</div>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 border-b border-gray-800 bg-gray-800/50">
+                  <th className="px-5 py-3 text-left font-medium">Action</th>
+                  <th className="px-5 py-3 text-left font-medium">Admin</th>
+                  <th className="px-5 py-3 text-left font-medium">Resource</th>
+                  <th className="px-5 py-3 text-left font-medium">Status</th>
+                  <th className="px-5 py-3 text-left font-medium">Timestamp</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logs.map(log => (
+                  <tr key={log.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        {actionIcon(log.action)}
+                        <span className="text-gray-200">{formatAction(log.action)}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-gray-300">{log.admin_email}</p>
+                      <p className="text-xs text-gray-600 font-mono">{log.admin_id?.slice(0, 8)}…</p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-gray-400">{log.resource_type}</p>
+                      {log.resource_id && <p className="text-xs text-gray-600 font-mono">{log.resource_id.slice(0, 8)}…</p>}
+                    </td>
+                    <td className="px-5 py-3">
+                      {log.success ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-900/40 text-green-300 border border-green-700">
+                          <CheckCircle className="w-3 h-3" /> Success
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-900/40 text-red-300 border border-red-700">
+                          <XCircle className="w-3 h-3" /> Failed
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-gray-500 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(log.created_at).toLocaleString()}
+                      </div>
+                      {log.ip_address && <p className="text-gray-600 mt-0.5">{log.ip_address}</p>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Pagination */}
       {total > filters.pageSize && (
-        <div className="flex justify-center mt-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleFilterChange('page', filters.page - 1)}
-              disabled={filters.page === 1 || loading}
-              className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-gray-50"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2 text-sm text-gray-600">
-              Page {filters.page} of {Math.ceil(total / filters.pageSize)}
-            </span>
-            <button
-              onClick={() => handleFilterChange('page', filters.page + 1)}
-              disabled={filters.page * filters.pageSize >= total || loading}
-              className="px-4 py-2 border rounded disabled:opacity-50 hover:bg-gray-50"
-            >
-              Next
-            </button>
-          </div>
+        <div className="flex justify-center gap-2">
+          <button onClick={() => setFilter('page', filters.page - 1)} disabled={filters.page === 1 || loading}
+            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-300 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-700 transition-colors">
+            Previous
+          </button>
+          <span className="px-4 py-2 text-sm text-gray-500">
+            Page {filters.page} of {Math.ceil(total / filters.pageSize)}
+          </span>
+          <button onClick={() => setFilter('page', filters.page + 1)} disabled={filters.page * filters.pageSize >= total || loading}
+            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-300 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-700 transition-colors">
+            Next
+          </button>
         </div>
       )}
     </div>
@@ -371,4 +193,3 @@ function AuditLogs() {
 }
 
 export default AuditLogs;
-

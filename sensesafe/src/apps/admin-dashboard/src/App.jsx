@@ -12,45 +12,26 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import AuditLogs from './pages/AuditLogs';
 import Scans from './pages/Scans';
-
 import { getAllAlertsForAdmin } from './services/api.js';
 
 function App() {
   const [alerts, setAlerts] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    unread: 0,
-    by_type: { SOS: 0, INCIDENT: 0, GENERAL: 0 }
-  });
-  const [newAlertId, setNewAlertId] = useState(null);
+  const [stats, setStats] = useState({ total: 0, unread: 0, by_type: { SOS: 0, INCIDENT: 0, GENERAL: 0 } });
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('token');
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('token'));
 
-  // Fetch real data from backend - includes SOS and incidents from their native endpoints
-  // This ensures data sent from Android app via /api/sos and /api/incidents is visible
   const fetchData = useCallback(async () => {
     try {
-      console.log('🔄 Fetching alerts from backend...');
-      
-      // Fetch from combined endpoint (fetches from /api/sos/user, /api/incidents/user, and /api/messages/admin/all)
       const data = await getAllAlertsForAdmin();
-      
-      // Safely extract messages array with defensive check
       const messagesList = Array.isArray(data?.messages) ? data.messages : [];
       const statsData = data?.stats || {};
 
-      setMessages(messagesList);
-
-      // Convert messages to alerts format for Dashboard/Alerts pages - handle missing fields
       const alertsList = messagesList.map(msg => ({
-        id: msg.id || `alert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: msg.id,
         userName: msg.user_name || 'Unknown User',
         alertType: msg.message_type === 'SOS' ? 'SOS Alert' : msg.message_type === 'INCIDENT' ? 'Incident' : 'Message',
         userCategory: msg.ability || msg.category || 'Normal',
-        isVulnerable: msg.ability && msg.ability !== 'NONE',
+        isVulnerable: !!(msg.ability && msg.ability !== 'NONE'),
         timestamp: msg.created_at || new Date().toISOString(),
         status: msg.is_read ? 'Resolved' : 'Active',
         description: msg.content || msg.title || 'No description',
@@ -60,12 +41,10 @@ function App() {
         severity: msg.severity,
         ability: msg.ability,
         battery: msg.battery,
+        is_read: msg.is_read,
       }));
-      
-      setAlerts(alertsList);
-      console.log(`✅ Loaded ${alertsList.length} alerts from backend`);
 
-      // Use stats from combined data with defensive checks
+      setAlerts(alertsList);
       setStats({
         total: statsData.total || alertsList.length,
         unread: statsData.unread || alertsList.filter(m => !m.is_read).length,
@@ -75,16 +54,11 @@ function App() {
           GENERAL: alertsList.filter(m => m.alertType === 'Message').length,
         }
       });
-
     } catch (error) {
-      console.error('❌ Error fetching data from backend:', error);
-      // If token was cleared by interceptor, log out via React state (no page reload)
       if (!localStorage.getItem('token')) {
         setIsLoggedIn(false);
         return;
       }
-      // Otherwise just show empty data
-      setMessages([]);
       setAlerts([]);
       setStats({ total: 0, unread: 0, by_type: { SOS: 0, INCIDENT: 0, GENERAL: 0 } });
     } finally {
@@ -92,82 +66,49 @@ function App() {
     }
   }, []);
 
-  // Initial data fetch
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchData();
-    }
+    if (isLoggedIn) fetchData();
   }, [isLoggedIn, fetchData]);
 
-  // Refresh data periodically
   useEffect(() => {
     if (!isLoggedIn) return;
-
-    const interval = setInterval(() => {
-      console.log('🔄 Periodic refresh...');
-      fetchData();
-    }, 5000); // Refresh every 5 seconds for faster updates
-
-    return () => clearInterval(interval);
+    const iv = setInterval(fetchData, 5000);
+    return () => clearInterval(iv);
   }, [isLoggedIn, fetchData]);
 
   const handleLogin = (success) => {
-    if (success) {
-      setIsLoggedIn(true);
-      fetchData();
-    }
+    if (success) { setIsLoggedIn(true); fetchData(); }
   };
 
-  if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
-  }
+  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="flex w-full min-h-screen bg-gray-100">
-        <Sidebar unreadCount={stats.unread} />
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 p-6">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading data from backend...</p>
-                  <p className="mt-2 text-sm text-gray-500">Fetching SOS alerts and incidents...</p>
-                </div>
+      <div className="flex w-full min-h-screen bg-gray-950">
+        <Sidebar unreadCount={stats.unread} activeSOS={stats.by_type?.SOS || 0} />
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto" />
+                <p className="mt-4 text-gray-400 text-sm">Loading from backend…</p>
               </div>
-            ) : (
-              <Routes>
-                <Route
-                  path="/"
-                  element={<Dashboard alerts={alerts} stats={stats} newAlertId={newAlertId} />}
-                />
-                <Route
-                  path="/alerts"
-                  element={<Alerts alerts={alerts} newAlertId={newAlertId} />}
-                />
-                <Route
-                  path="/alerts/:id"
-                  element={<AlertDetail alerts={alerts} />}
-                />
-                <Route
-                  path="/messages"
-                  element={<Messages />}
-                />
-                <Route
-                  path="/admin-actions"
-                  element={<AdminActions />}
-                />
-                <Route path="/users" element={<Users />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/audit-logs" element={<AuditLogs />} />
-                <Route path="/scans" element={<Scans />} />
-
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            )}
-          </main>
+            </div>
+          ) : (
+            <Routes>
+              <Route path="/" element={<Dashboard alerts={alerts} stats={stats} />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/alerts/:id" element={<AlertDetail alerts={alerts} />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/admin-actions" element={<AdminActions />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/scans" element={<Scans />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          )}
         </div>
       </div>
     </Router>
@@ -175,4 +116,3 @@ function App() {
 }
 
 export default App;
-

@@ -1,408 +1,241 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MessageCircle, 
-  AlertTriangle, 
-  Flame, 
-  Clock,
-  CheckCircle,
-  Eye,
-  RefreshCw,
-  MapPin
+import {
+  Search, MessageCircle, AlertTriangle, Flame, Clock,
+  CheckCircle, RefreshCw, MapPin, Siren, Filter
 } from 'lucide-react';
+import { getAllAlertsForAdmin, markMessageAsRead, resolveSOS, resolveIncident, deleteMessage } from '../services/api.js';
 
-import VulnerableBadge from '../components/VulnerableBadge';
-import StatusBadge from '../components/StatusBadge';
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const diff = Date.now() - new Date(ts);
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
-import { 
-  getAllAlertsForAdmin, 
-  markMessageAsRead,
-  resolveSOS,
-  resolveIncident
-} from '../services/api.js';
+const TYPE_BORDER = {
+  SOS: 'border-l-red-500',
+  INCIDENT: 'border-l-orange-500',
+  GENERAL: 'border-l-blue-500',
+};
 
 function Messages() {
   const [messages, setMessages] = useState([]);
-  const [filteredMessages, setFilteredMessages] = useState([]);
-
-  const [stats, setStats] = useState({
-    total: 0,
-    unread: 0,
-    sos_count: 0,
-    incident_count: 0
-  });
-
+  const [filtered, setFiltered] = useState([]);
+  const [stats, setStats] = useState({ total: 0, unread: 0, sos: 0, incidents: 0 });
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [readFilter, setReadFilter] = useState('all');
-  const [selectedMessage, setSelectedMessage] = useState(null);
 
-  // ================= FETCH DATA =================
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-
     try {
-      console.log('🔄 Fetching messages from backend...');
-
       const data = await getAllAlertsForAdmin();
-
-      // ALWAYS use fallback - handle cases where data might be undefined
-      const messagesList = Array.isArray(data?.messages) ? data.messages : [];
-      const statsData = data?.stats || {};
-
-      console.log(`📨 Received ${messagesList.length} messages`);
-
-      setMessages(messagesList);
-
+      const msgs = Array.isArray(data?.messages) ? data.messages : [];
+      setMessages(msgs);
       setStats({
-        total: statsData.total || messagesList.length,
-        unread: statsData.unread || messagesList.filter(m => !m.is_read).length,
-        sos_count: statsData.by_type?.SOS || messagesList.filter(m => m.message_type === 'SOS').length,
-        incident_count: statsData.by_type?.INCIDENT || messagesList.filter(m => m.message_type === 'INCIDENT').length
+        total: msgs.length,
+        unread: msgs.filter(m => !m.is_read).length,
+        sos: msgs.filter(m => m.message_type === 'SOS').length,
+        incidents: msgs.filter(m => m.message_type === 'INCIDENT').length,
       });
-
-    } catch (err) {
-      console.error('❌ Error fetching messages:', err);
-      // Set empty data on error to prevent crash
+    } catch (e) {
+      console.error(e);
       setMessages([]);
-      setStats({ total: 0, unread: 0, sos_count: 0, incident_count: 0 });
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  useEffect(() => { fetchData(); const iv = setInterval(fetchData, 5000); return () => clearInterval(iv); }, [fetchData]);
+
   useEffect(() => {
-    fetchData();
-    
-    // Real-time polling every 3 seconds
-    const interval = setInterval(fetchData, 3000);
-    
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    let f = [...messages];
+    if (search) f = f.filter(m =>
+      (m.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (m.content || '').toLowerCase().includes(search.toLowerCase()) ||
+      (m.user_name || '').toLowerCase().includes(search.toLowerCase())
+    );
+    if (typeFilter !== 'all') f = f.filter(m => m.message_type === typeFilter);
+    if (readFilter === 'unread') f = f.filter(m => !m.is_read);
+    else if (readFilter === 'read') f = f.filter(m => m.is_read);
+    f.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    setFiltered(f);
+  }, [messages, search, typeFilter, readFilter]);
 
-  // ================= FILTERING =================
-  useEffect(() => {
-    let filtered = [...messages];
-
-    if (searchTerm) {
-      filtered = filtered.filter(msg =>
-        (msg.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (msg.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (msg.user_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(msg => msg.message_type === typeFilter);
-    }
-
-    if (readFilter !== 'all') {
-      const isRead = readFilter === 'read';
-      filtered = filtered.filter(msg => msg.is_read === isRead);
-    }
-
-    filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    setFilteredMessages(filtered);
-  }, [messages, searchTerm, typeFilter, readFilter]);
-
-  // ================= MARK READ =================
-  const handleMarkAsRead = async (messageId) => {
+  const handleMarkRead = async (msg) => {
     try {
-      console.log(`📖 Marking message ${messageId} as read...`);
-      await markMessageAsRead(messageId);
-
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === messageId ? { ...msg, is_read: true } : msg
-        )
-      );
-
-      setStats(prev => ({
-        ...prev,
-        unread: Math.max(prev.unread - 1, 0)
-      }));
-    } catch (err) {
-      console.error('Error marking message as read:', err);
-      // Handle 404 gracefully - message might not exist in messages table
-      if (err.response?.status === 404) {
-        console.warn('Message not found in database - it may be from fallback data');
-        // Optimistically mark as read locally
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === messageId ? { ...msg, is_read: true } : msg
-          )
-        );
-        setStats(prev => ({
-          ...prev,
-          unread: Math.max(prev.unread - 1, 0)
-        }));
+      let updatedMsg = { ...msg, is_read: true };
+      if (msg.sourceType === 'MESSAGE') {
+        await markMessageAsRead(msg._backendId || msg.id);
+      } else if (msg.sourceType === 'SOS') {
+        await resolveSOS(msg._backendId || msg.id);
+        updatedMsg.status = 'SAFE';
+      } else if (msg.sourceType === 'INCIDENT') {
+        await resolveIncident(msg._backendId || msg.id);
+        updatedMsg.status = 'RESOLVED';
       }
+      setMessages(prev => prev.map(m => m.id === msg.id ? updatedMsg : m));
+    } catch (e) {
+      console.error('Mark read failed:', e);
+      // Optimistic update anyway
+      const fallbackStatus = msg.message_type === 'SOS' ? 'SAFE' : 'RESOLVED';
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, is_read: true, status: fallbackStatus } : m));
     }
   };
 
-  // ================= RESOLVE ISSUES =================
-  const handleResolve = async (message) => {
+  const handleResolve = async (msg) => {
     try {
-      console.log(`🔧 Resolving ${message.message_type} ${message.id}...`);
-      
-      if (message.message_type === 'SOS') {
-        await resolveSOS(message.id);
-      } else if (message.message_type === 'INCIDENT') {
-        await resolveIncident(message.id);
+      let updatedMsg = { ...msg, is_read: true };
+      let newStatus = 'RESOLVED';
+      if (msg.sourceType === 'SOS') {
+        await resolveSOS(msg._backendId || msg.id);
+        newStatus = 'SAFE';
+        updatedMsg.status = 'SAFE';
+      } else if (msg.sourceType === 'INCIDENT') {
+        await resolveIncident(msg._backendId || msg.id);
+        updatedMsg.status = 'RESOLVED';
+      } else {
+        await markMessageAsRead(msg._backendId || msg.id);
+        updatedMsg.status = msg.message_type === 'SOS' ? 'SAFE' : 'RESOLVED';
       }
-
-      // Update local state
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === message.id 
-            ? { ...msg, is_read: true, status: message.message_type === 'SOS' ? 'SAFE' : 'RESOLVED' }
-            : msg
-        )
-      );
-
-      setStats(prev => ({
-        ...prev,
-        unread: Math.max(prev.unread - 1, 0)
-      }));
-    } catch (err) {
-      console.error(`Error resolving ${message.message_type}:`, err);
-      // Handle gracefully - might be from fallback data
-      if (err.response?.status === 404) {
-        console.warn(`${message.message_type} not found in database - optimistically updating UI`);
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === message.id 
-              ? { ...msg, is_read: true, status: message.message_type === 'SOS' ? 'SAFE' : 'RESOLVED' }
-              : msg
-          )
-        );
-      }
+      setMessages(prev => prev.map(m => m.id === msg.id ? updatedMsg : m));
+    } catch (e) {
+      console.error('Resolve failed:', e);
+      // Optimistic anyway
+      const fallbackStatus = msg.message_type === 'SOS' ? 'SAFE' : 'RESOLVED';
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...msg, is_read: true, status: fallbackStatus } : m));
     }
   };
 
-  const getMessageIcon = (type) => {
-    switch (type) {
-      case 'SOS':
-        return <AlertTriangle className="h-5 w-5 text-red-500" />;
-      case 'INCIDENT':
-        return <Flame className="h-5 w-5 text-orange-500" />;
-      default:
-        return <MessageCircle className="h-5 w-5 text-blue-500" />;
-    }
-  };
-
-  const getMessageColor = (type) => {
-    switch (type) {
-      case 'SOS':
-        return 'bg-red-50 border-red-200';
-      case 'INCIDENT':
-        return 'bg-orange-50 border-orange-200';
-      default:
-        return 'bg-blue-50 border-blue-200';
-    }
-  };
-
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'Unknown';
-
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-
-    const mins = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-
-    return date.toLocaleString();
+  const TypeIcon = ({ type }) => {
+    if (type === 'SOS') return <Siren className="w-5 h-5 text-red-400" />;
+    if (type === 'INCIDENT') return <Flame className="w-5 h-5 text-orange-400" />;
+    return <MessageCircle className="w-5 h-5 text-blue-400" />;
   };
 
   return (
-    <div className="p-6">
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-5">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Messages</h1>
-          <p className="text-gray-600">
-            SOS + Incident reports coming from the Android app
-          </p>
+          <h1 className="text-2xl font-bold text-white">Messages</h1>
+          <p className="text-gray-400 text-sm mt-0.5">SOS + incident reports from the Android app</p>
         </div>
-
-        <button
-          onClick={fetchData}
-          disabled={isLoading}
-          className="inline-flex items-center px-4 py-2 border rounded-md"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+        <button onClick={fetchData} disabled={isLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-sm transition-colors">
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center">
-            <MessageCircle className="h-8 w-8 text-blue-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Total Messages</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Total', value: stats.total, color: 'text-white' },
+          { label: 'Unread', value: stats.unread, color: 'text-yellow-400' },
+          { label: 'SOS', value: stats.sos, color: 'text-red-400' },
+          { label: 'Incidents', value: stats.incidents, color: 'text-orange-400' },
+        ].map(s => (
+          <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+            <p className="text-xs text-gray-500">{s.label}</p>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center">
-            <Clock className="h-8 w-8 text-orange-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Unread</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.unread}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center">
-            <AlertTriangle className="h-8 w-8 text-red-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">SOS Alerts</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.sos_count}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex items-center">
-            <Flame className="h-8 w-8 text-orange-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Incidents</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.incident_count}</p>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* FILTERS */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-64">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                type="text"
-                placeholder="Search messages..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-          </div>
-          
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="all">All Types</option>
-            <option value="SOS">SOS Only</option>
-            <option value="INCIDENT">Incidents Only</option>
-            <option value="GENERAL">General</option>
-          </select>
-          
-          <select
-            value={readFilter}
-            onChange={(e) => setReadFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="all">All Status</option>
-            <option value="unread">Unread Only</option>
-            <option value="read">Read Only</option>
-          </select>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input type="text" placeholder="Search messages..." value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 placeholder-gray-500" />
         </div>
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+          <option value="all">All Types</option>
+          <option value="SOS">SOS</option>
+          <option value="INCIDENT">Incidents</option>
+          <option value="GENERAL">General</option>
+        </select>
+        <select value={readFilter} onChange={e => setReadFilter(e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none">
+          <option value="all">All</option>
+          <option value="unread">Unread</option>
+          <option value="read">Read</option>
+        </select>
       </div>
 
-      {/* LIST */}
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="text-center py-12">
-            <RefreshCw className="h-10 w-10 animate-spin mx-auto text-indigo-500" />
-            <p className="mt-2 text-gray-600">Loading messages…</p>
-          </div>
-        ) : filteredMessages.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded shadow">
-            <MessageCircle className="h-10 w-10 mx-auto text-gray-400" />
-            <p className="mt-2 text-gray-600">
-              No messages yet — Android alerts will appear here.
-            </p>
-          </div>
-        ) : (
-          filteredMessages.map(message => (
-            <div
-              key={message.id}
-              className={`bg-white rounded-lg shadow p-6 border-l-4 ${getMessageColor(message.message_type)}`}
-            >
-              <div className="flex justify-between">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    {getMessageIcon(message.message_type)}
-                    <h3 className="font-semibold">{message.title || 'Alert'}</h3>
-                    {message.status && (
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        message.status === 'SAFE' || message.status === 'RESOLVED' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {message.status}
+      {/* List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <RefreshCw className="w-8 h-8 animate-spin text-red-500" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-gray-900 border border-gray-800 rounded-xl text-gray-500">
+          <MessageCircle className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p>No messages yet — Android alerts will appear here</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(msg => (
+            <div key={msg.id}
+              className={`bg-gray-900 border border-gray-800 rounded-xl p-5 border-l-4 ${TYPE_BORDER[msg.message_type] || 'border-l-gray-600'} ${!msg.is_read ? 'ring-1 ring-inset ring-gray-700' : 'opacity-80'}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <TypeIcon type={msg.message_type} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-white text-sm">{msg.title || `${msg.message_type} Alert`}</h3>
+                      {!msg.is_read && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Unread" />
+                      )}
+                      {msg.status && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                          msg.status === 'SAFE' || msg.status === 'RESOLVED'
+                            ? 'bg-green-900/50 text-green-300 border-green-700'
+                            : 'bg-red-900/50 text-red-300 border-red-700'
+                        }`}>{msg.status}</span>
+                      )}
+                    </div>
+                    <p className="text-gray-400 text-sm mt-1">{msg.content || '(No content)'}</p>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                      <span>{msg.user_name || 'Unknown user'}</span>
+                      {msg.lat && msg.lng && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {Number(msg.lat).toFixed(4)}, {Number(msg.lng).toFixed(4)}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {timeAgo(msg.created_at)}
                       </span>
-                    )}
+                    </div>
                   </div>
-
-                  <p className="mt-2 text-gray-700">
-                    {message.content || '(No content)'}
-                  </p>
-
-                  {(message.lat && message.lng) && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      📍 {message.lat}, {message.lng}
-                    </p>
-                  )}
-
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formatTimestamp(message.created_at)}
-                  </p>
                 </div>
-
-                <div className="flex space-x-2">
-                  {!message.is_read && (
-                    <button
-                      onClick={() => handleMarkAsRead(message.id)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      title={message._isFallbackData ? 'Cannot mark as read - data from fallback endpoint' : ''}
-                      disabled={message._isFallbackData}
-                      style={message._isFallbackData ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                    >
-                      {message._isFallbackData ? 'Read-only' : 'Mark read'}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {!msg.is_read && (
+                    <button onClick={() => handleMarkRead(msg)}
+                      className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-xs transition-colors">
+                      Mark read
                     </button>
                   )}
-                  
-                  {(message.status !== 'SAFE' && message.status !== 'RESOLVED') && (
-                    <button
-                      onClick={() => handleResolve(message)}
-                      className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                      title={`Resolve this ${message.message_type.toLowerCase()}`}
-                    >
-                      Resolve
+                  {msg.status !== 'SAFE' && msg.status !== 'RESOLVED' && !msg.is_read && (
+                    <button onClick={() => handleResolve(msg)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-800 hover:bg-green-700 text-green-200 rounded-lg text-xs transition-colors">
+                      <CheckCircle className="w-3.5 h-3.5" /> Resolve
                     </button>
                   )}
                 </div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
